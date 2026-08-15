@@ -25,7 +25,7 @@ class KnowledgeBaseTool:
     def __init__(self) -> None:
 
         self.region = os.getenv(
-            "AWS_REGION",
+            "BEDROCK_KNOWLEDGE_BASE_REGION",
             "us-east-1"
         )
 
