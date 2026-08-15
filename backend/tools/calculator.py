@@ -1,7 +1,6 @@
 import ast
 import operator
 
-
 _ALLOWED_OPERATORS = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,

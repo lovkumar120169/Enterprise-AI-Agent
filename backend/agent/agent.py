@@ -1,4 +1,3 @@
-import json
 import os
 from typing import Any
 
@@ -7,16 +6,9 @@ from backend.guardrails.input import InputGuardrail
 from backend.guardrails.output import OutputGuardrail
 from backend.llm.bedrock import BedrockClient
 from backend.llm.prompts import SYSTEM_PROMPT
-from backend.tools.registry import (
-    TOOL_DEFINITIONS,
-    TOOL_FUNCTIONS
-)
-from backend.reliability.circuit_breaker import (
-    CircuitBreaker
-)
-from backend.reliability.timeout import (
-    run_with_timeout
-)
+from backend.reliability.circuit_breaker import CircuitBreaker
+from backend.reliability.timeout import run_with_timeout
+from backend.tools.registry import TOOL_DEFINITIONS, TOOL_FUNCTIONS
 from backend.utils.logging import logger
 
 

@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 
 from backend.utils.logging import logger
 
-
 load_dotenv()
 
 

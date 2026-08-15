@@ -4,7 +4,6 @@ from typing import Any
 import boto3
 from dotenv import load_dotenv
 
-
 load_dotenv()
 
 

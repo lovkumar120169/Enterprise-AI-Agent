@@ -1,6 +1,6 @@
 import os
-import requests
 
+import requests
 
 ALPHA_VANTAGE_API_KEY = os.getenv(
     "ALPHA_VANTAGE_API_KEY"

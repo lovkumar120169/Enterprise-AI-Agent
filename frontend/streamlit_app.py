@@ -3,7 +3,6 @@ from pathlib import Path
 
 import streamlit as st
 
-
 PROJECT_ROOT = (
     Path(__file__)
     .resolve()
@@ -19,7 +18,6 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 from backend.main import chat
-
 
 st.set_page_config(
     page_title="Enterprise AI Agent",

@@ -1,6 +1,6 @@
 import os
-import requests
 
+import requests
 
 TAVILY_API_KEY = os.getenv(
     "TAVILY_API_KEY"

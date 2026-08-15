@@ -1,8 +1,7 @@
 from backend.tools.calculator import calculate
+from backend.tools.stocks import get_stock
 from backend.tools.weather import get_weather
 from backend.tools.web_search import web_search
-from backend.tools.stocks import get_stock
-
 
 TOOL_FUNCTIONS = {
 

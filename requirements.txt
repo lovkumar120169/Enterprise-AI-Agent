@@ -3,3 +3,6 @@ boto3
 botocore
 python-dotenv
 requests
+pytest
+bandit
+pip-audit

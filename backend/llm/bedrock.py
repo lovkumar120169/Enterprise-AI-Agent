@@ -2,15 +2,11 @@ import os
 from typing import Any
 
 import boto3
-from botocore.exceptions import (
-    BotoCoreError,
-    ClientError
-)
+from botocore.exceptions import BotoCoreError, ClientError
 from dotenv import load_dotenv
 
 from backend.reliability.retry import retry
 from backend.utils.logging import logger
-
 
 load_dotenv()
 

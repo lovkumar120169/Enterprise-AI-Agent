@@ -1,6 +1,5 @@
 from backend.agent.agent import AIAgent
 
-
 agent = AIAgent()
 
 

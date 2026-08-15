@@ -1,7 +1,4 @@
-from concurrent.futures import (
-    ThreadPoolExecutor,
-    TimeoutError
-)
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 
 def run_with_timeout(
