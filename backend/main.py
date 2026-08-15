@@ -5,7 +5,8 @@ agent = AIAgent()
 
 def chat(
     user_message: str,
-    history: list[dict] | None = None
+    history: list[dict] | None = None,
+    use_knowledge_base=False
 ) -> dict:
 
     if not user_message.strip():
@@ -18,6 +19,7 @@ def chat(
             "route": None,
             "iterations": 0,
             "tool_calls": [],
+            "citations": state.citations,
             "error": (
                 "Empty user message."
             )
@@ -25,7 +27,8 @@ def chat(
 
     state = agent.run(
         user_message=user_message,
-        history=history
+        history=history,
+        use_knowledge_base=use_knowledge_base
     )
 
     return {

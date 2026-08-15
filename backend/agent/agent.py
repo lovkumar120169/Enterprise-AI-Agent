@@ -1,6 +1,10 @@
 import os
 from typing import Any
+from unittest import result
 
+from streamlit import context
+
+from backend.agent import state
 from backend.agent.state import AgentState
 from backend.guardrails.input import InputGuardrail
 from backend.guardrails.output import OutputGuardrail
@@ -48,6 +52,7 @@ class AIAgent:
     def run(
         self,
         user_message: str,
+        use_knowledge_base: bool = False,
         history: list[dict[str, Any]] | None = None
     ) -> AgentState:
 
@@ -57,9 +62,15 @@ class AIAgent:
 
 
         state = AgentState(
-            user_message=user_message
+            user_message=user_message,
+            use_knowledge_base=use_knowledge_base
         )
 
+        logger.info(
+            "KNOWLEDGE BASE MODE | enabled=%s",
+            use_knowledge_base
+        )
+        
         history = history or []
 
         # -------------------------------------------------
@@ -116,6 +127,183 @@ class AIAgent:
                 ]
             }
         )
+
+        # -------------------------------------------------
+        # KNOWLEDGE BASE MODE
+        # -------------------------------------------------
+
+        if use_knowledge_base:
+
+            logger.info(
+                "KNOWLEDGE BASE MODE | forcing RAG retrieval"
+            )
+
+            result = self._execute_tool(
+                "knowledge_base",
+                {
+                    "query": user_message
+                }
+            )
+
+            state.selected_tool = "knowledge_base"
+
+            state.tool_calls.append(
+                {
+                    "tool": "knowledge_base",
+                    "input": {
+                        "query": user_message
+                    }
+                }
+            )
+
+            if not result.get("success"):
+                logger.error(
+                    "KNOWLEDGE BASE MODE | retrieval failed"
+                )
+
+                state.error = result.get(
+                    "error",
+                    "Knowledge Base retrieval failed."
+                )
+
+                state.response = (
+                    "I couldn't retrieve information from "
+                    "the Knowledge Base."
+                )
+
+                return state
+
+            logger.info(
+                "KNOWLEDGE BASE MODE | retrieval successful"
+            )
+
+            retrieved_data = result.get(
+                "data",
+                {}
+            )
+
+            context = retrieved_data.get(
+                "results",
+                []
+            )
+
+            state.citations = []
+
+            for item in context:
+                state.citations.append(
+                    {
+                        "rank": item.get("rank"),
+                        "score": item.get("score"),
+                        "location": item.get("location", {}),
+                        "metadata": item.get("metadata", {})
+                    }
+                )
+
+
+            if not context:
+
+                logger.warning(
+                    "KNOWLEDGE BASE MODE | no relevant documents found"
+                )
+
+                state.response = (
+                    "I couldn't find relevant information "
+                    "in the Knowledge Base."
+                )
+
+                return state
+
+            context_text = "\n\n".join(
+                [
+                    item.get("text", "")
+                    for item in context
+                    if item.get("text")
+                ]
+            )
+
+            if not context_text.strip():
+
+                logger.warning(
+                    "KNOWLEDGE BASE MODE | retrieved results contain no text"
+                )
+
+                state.response = (
+                    "I couldn't find usable information "
+                    "in the Knowledge Base."
+                )
+
+                return state
+
+
+            rag_prompt = f"""
+            You are an enterprise AI assistant answering questions using
+            information retrieved from the company's Knowledge Base.
+
+            Follow these rules strictly:
+
+            1. Use only the information contained in the retrieved context.
+            2. Do not use outside knowledge to fill missing information.
+            3. Do not invent or assume facts.
+            4. If the retrieved context does not contain enough information
+            to answer the question, clearly say that the information
+            was not found in the Knowledge Base.
+            5. Answer the user's question clearly and directly.
+
+            Retrieved Knowledge Base Context:
+            --------------------------------
+            {context_text}
+            --------------------------------
+
+            User Question:
+            {user_message}
+            """
+
+            try:
+                response = self.llm.converse(
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "text": rag_prompt
+                                }
+                            ]
+                        }
+                    ],
+                    system_prompt=(
+                        "You are an enterprise RAG assistant. "
+                        "Answer using only the provided Knowledge Base context."
+                    ),
+                    tools=None
+                )
+
+            except Exception:
+                logger.exception(
+                    "KNOWLEDGE BASE MODE | LLM generation failed"
+                )
+
+                state.error = (
+                    "Failed to generate an answer from "
+                    "the Knowledge Base."
+                )
+
+                state.response = (
+                    "I was unable to generate an answer "
+                    "from the Knowledge Base."
+                )
+
+                return state
+
+            output_message = response["output"]["message"]
+
+            text = self._extract_text(
+                output_message
+            )
+
+            return self._apply_output_guardrail(
+                state,
+                text
+            )
 
         # -------------------------------------------------
         # AGENT LOOP

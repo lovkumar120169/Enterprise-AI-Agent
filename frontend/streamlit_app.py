@@ -141,6 +141,26 @@ st.markdown(
         font-size: 0.85rem;
     }
 
+    /* ---------------- AGENT SETTINGS ---------------- */
+    .settings-card {
+        # padding: 12px 14px;
+        margin-bottom: 6px;
+        margin-top: -15px;
+        background: rgba(255,255,255,0.03);
+        border: 0.5px solid rgba(255,255,255,0.08);
+    }
+    .settings-note {
+        font-size: 0.74rem;
+        color: #6B7385;
+        line-height: 1.4;
+        margin-top: 4px;
+    }
+    div[data-testid="stToggle"] { margin-bottom: 2px; }
+    div[data-testid="stToggle"] label p {
+        font-size: 0.88rem !important;
+        font-weight: 500;
+    }
+
     /* ---------------- TOOL TRACE ---------------- */
     .tool-trace-item {
         border-left: 2px solid #5B8DEF;
@@ -223,6 +243,36 @@ with st.sidebar:
 
     st.divider()
 
+    st.markdown('<p class="sidebar-heading">Agent Settings</p>', unsafe_allow_html=True)
+
+    # st.markdown('<div class="settings-card">', unsafe_allow_html=True)
+    use_knowledge_base = st.toggle(
+        "📚 Access Knowledge Base",
+        value=False,
+        help="When enabled, answers will use information retrieved from the enterprise Knowledge Base."
+    )
+    st.markdown(
+        '<p class="settings-note">Pulls grounded context from the enterprise Knowledge Base before responding.</p>',
+        unsafe_allow_html=True
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    kb_dot_color = "#2DD4BF" if use_knowledge_base else "#4A5268"
+    kb_status_text = "Connected" if use_knowledge_base else "Not in use"
+    st.markdown(
+        f"""
+        <div class="status-card">
+            <span class="dot" style="background:{kb_dot_color};"></span>
+            <div>
+                <span class="label">Knowledge Base</span>
+                <span class="value">{kb_status_text}</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.divider()
+
     st.markdown('<p class="sidebar-heading">Session</p>', unsafe_allow_html=True)
     st.markdown(
         f"""
@@ -297,6 +347,7 @@ if user_message:
         ):
             result = chat(
                 user_message=user_message,
+                use_knowledge_base=use_knowledge_base,
                 history=history
             )
         if result["success"]:
@@ -306,6 +357,48 @@ if user_message:
             st.markdown(
                 response
             )
+            citations = result.get(
+                "citations",
+                []
+            )
+            if citations:
+                with st.expander(
+                    "📚 Sources"
+                ):
+                    for citation in citations:
+
+                        rank = citation.get(
+                            "rank"
+                        )
+
+                        score = citation.get(
+                            "score"
+                        )
+
+                        location = citation.get(
+                            "location",
+                            {}
+                        )
+
+                        metadata = citation.get(
+                            "metadata",
+                            {}
+                        )
+
+                        st.markdown(
+                            f"**Source {rank}**"
+                        )
+
+                        if score is not None:
+                            st.caption(
+                                f"Relevance score: {score:.4f}"
+                            )
+
+                        if location:
+                            st.json(location)
+
+                        if metadata:
+                            st.json(metadata)
         else:
             response = result[
                 "response"

@@ -15,6 +15,8 @@ class AgentState:
 
     selected_tool: str | None = None
 
+    use_knowledge_base: bool = False
+
     iterations: int = 0
 
     tool_calls: list[dict[str, Any]] = field(
