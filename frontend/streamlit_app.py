@@ -20,7 +20,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from backend.main import chat
 
 st.set_page_config(
-    page_title="Enterprise AI Agent",
+    page_title="Enterprise AI Agent - Luv",
     page_icon="🤖",
     layout="wide"
 )
