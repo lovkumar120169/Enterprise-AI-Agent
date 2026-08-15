@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Enterprise AI Agent CI/CD
 
 on:
   pull_request:
@@ -11,12 +11,13 @@ on:
 
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 env:
   AWS_REGION: ap-southeast-2
   ECR_REPOSITORY: enterprise-ai-agent
+  ECS_CLUSTER: EnterpriseAIAgentCluster
+  ECS_SERVICE: EnterpriseAIAgentService
+  ECS_TASK_DEFINITION: .aws/task-definition.json
+  CONTAINER_NAME: enterprise-ai-agent
 
 jobs:
 
@@ -30,7 +31,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -64,18 +65,17 @@ jobs:
             .
 
   # =========================================================
-  # PUSH TO ECR
+  # BUILD + PUSH + ECS DEPLOYMENT
   # =========================================================
 
-  push-to-ecr:
-    name: Push Image to ECR
+  deploy:
+    name: Build, Push and Deploy
     runs-on: ubuntu-latest
 
     needs:
       - ci
 
-    # IMPORTANT:
-    # Pull requests must NEVER push to production ECR.
+    # Only master pushes can deploy production.
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
 
     permissions:
@@ -83,44 +83,101 @@ jobs:
       id-token: write
 
     steps:
+
+      # -----------------------------------------------------
+      # Checkout
+      # -----------------------------------------------------
+
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      # -----------------------------------------------------
+      # AWS OIDC
+      # -----------------------------------------------------
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@v6.2.3
         with:
           role-to-assume: arn:aws:iam::875243385163:role/EnterpriseAIAgentGitHubActionsRole
           aws-region: ap-southeast-2
+
+      # -----------------------------------------------------
+      # Verify AWS identity
+      # -----------------------------------------------------
 
       - name: Verify AWS identity
         run: |
           aws sts get-caller-identity
 
+      # -----------------------------------------------------
+      # ECR login
+      # -----------------------------------------------------
+
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@v2.1.6
+
+      # -----------------------------------------------------
+      # Build Docker image
+      # -----------------------------------------------------
 
       - name: Build Docker image
         env:
-          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build \
             --pull \
-            -t $REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
             .
+
+      # -----------------------------------------------------
+      # Push Docker image
+      # -----------------------------------------------------
 
       - name: Push Docker image
         env:
-          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker push $REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push \
+            $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Display image
-        env:
-          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+      # -----------------------------------------------------
+      # Render ECS task definition
+      # -----------------------------------------------------
+
+      - name: Render ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ env.ECS_TASK_DEFINITION }}
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+
+      # -----------------------------------------------------
+      # Deploy ECS service
+      # -----------------------------------------------------
+
+      - name: Deploy to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      # -----------------------------------------------------
+      # Deployment summary
+      # -----------------------------------------------------
+
+      - name: Deployment successful
         run: |
-          echo "Docker image pushed successfully:"
-          echo "$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "=============================================="
+          echo "Enterprise AI Agent deployment successful"
+          echo "=============================================="
+          echo "Commit: ${{ github.sha }}"
+          echo "ECR: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+          echo "ECS Cluster: ${{ env.ECS_CLUSTER }}"
+          echo "ECS Service: ${{ env.ECS_SERVICE }}"
+          echo "=============================================="
