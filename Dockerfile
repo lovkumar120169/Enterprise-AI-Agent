@@ -19,6 +19,9 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY backend ./backend
 COPY frontend ./frontend
 
+# Copy Streamlit configuration
+COPY .streamlit /app/.streamlit
+
 # Create a non-root user
 RUN useradd --create-home --shell /bin/bash appuser \
     && chown -R appuser:appuser /app
